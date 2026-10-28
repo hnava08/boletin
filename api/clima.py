@@ -4,14 +4,32 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ / "src"))
 
 from boletin.web import consultar  # noqa: E402
+
+ESTATICO = RAIZ / "src" / "boletin" / "estatico"
+ARCHIVOS = {
+    "/": (ESTATICO / "index.html", "text/html; charset=utf-8"),
+    "/index.html": (ESTATICO / "index.html", "text/html; charset=utf-8"),
+    "/charts.js": (ESTATICO / "charts.js", "text/javascript; charset=utf-8"),
+}
 
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        consulta = parse_qs(urlparse(self.path).query)
+        ruta = urlparse(self.path)
+        if ruta.path in ARCHIVOS:
+            archivo, tipo = ARCHIVOS[ruta.path]
+            cuerpo = archivo.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", tipo)
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+            return
+        consulta = parse_qs(ruta.query)
         ciudad = (consulta.get("ciudad") or [""])[0]
         pais = (consulta.get("pais") or [""])[0] or None
         estado, cuerpo = consultar(ciudad, pais)

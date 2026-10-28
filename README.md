@@ -18,7 +18,7 @@ El comando queda en el entorno:
 .venv/bin/boletin-pantalla
 ```
 
-La pantalla queda en `http://127.0.0.1:8020`. Arriba está el cielo de la ciudad: cambia con el estado (despejado, nublado, lluvia, nieve, niebla, tormenta) y con la hora (día, noche, amanecer, atardecer). La salida y la puesta salen de Open-Meteo. Debajo, la curva de las horas y la mínima y máxima de siete días.
+La pantalla local queda en `http://127.0.0.1:8020`. En línea está en `https://boletin-tawny.vercel.app`. Arriba está el cielo de la ciudad: cambia con el estado (despejado, nublado, lluvia, nieve, niebla, tormenta) y con la hora (día, noche, amanecer, atardecer). La salida y la puesta salen de Open-Meteo. Debajo, la curva de las horas y la mínima y máxima de siete días.
 
 Desde Python:
 

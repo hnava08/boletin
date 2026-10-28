@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boletín</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* Hoja enmarcada. El cielo es la lectura, no un fondo decorativo.
+       1440: barra 48. Hoja inset 8 a la derecha y abajo.
+       Contenido 1440 − 8 − 48 de padding = 1384.
+       Fila: 2fr + 24 + 1fr. */
+    :root {
+      --ground: #e7eee9;
+      --surface: #ffffff;
+      --border: #e8eaec;
+      --rule: #f0f1f2;
+      --control: #cdced1;
+      --text: #131416;
+      --muted: #5d5f60;
+      --accent: #1b6c80;
+      --chart-1: #1b6c80;
+      --chart-muted: #8a8f92;
+      --grid: #e6e8ea;
+      --axis-ink: #6b6e70;
+      --ink: #131416;
+      --radius-card: 8px;
+      --radius-control: 6px;
+      --gap: 24px;
+      --pad: 24px;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: var(--ground);
+      color: var(--text);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .app { min-height: 100svh; display: grid; grid-template-rows: 48px minmax(0, 1fr); }
+    .top {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px 0 20px;
+    }
+    .marca { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; }
+    .marca span { border-bottom: 2px solid var(--accent); }
+    form { display: flex; align-items: center; gap: 8px; }
+    label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+    input {
+      height: 32px;
+      border: 1px solid var(--control);
+      border-radius: var(--radius-control);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      padding: 0 8px;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    #ciudad { width: 180px; }
+    #pais { width: 52px; text-transform: uppercase; }
+    button {
+      height: 32px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: var(--radius-control);
+      background: var(--text);
+      color: #fff;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform 120ms var(--ease-out);
+    }
+    button:hover { background: #2a2c2e; }
+    button:active { transform: scale(0.97); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    .sheet {
+      background: var(--surface);
+      margin: 0 8px 8px 0;
+      border: 1px solid #eaeaea;
+      border-radius: 16px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .cielo {
+      --alto: var(--ground);
+      --bajo: var(--ground);
+      color: #14181c;
+      transition: color 240ms var(--ease-out);
+    }
+    .lienzo { position: relative; height: 168px; overflow: hidden; }
+    .firmamento, .horizonte { position: absolute; left: 0; right: 0; transition: background-color 240ms var(--ease-out); }
+    .firmamento { top: 0; height: 100%; background: var(--alto); }
+    .horizonte { bottom: 0; height: 28%; background: var(--bajo); }
+    .cielo[data-momento="dia"][data-cielo="despejado"] { --alto: #6ea4bf; --bajo: #d7e7ee; }
+    .cielo[data-momento="dia"][data-cielo="claro"] { --alto: #7ea9bb; --bajo: #d5e4ea; }
+    .cielo[data-momento="dia"][data-cielo="nublado"] { --alto: #8d99a3; --bajo: #d5dbdf; }
+    .cielo[data-momento="dia"][data-cielo="niebla"] { --alto: #b7c0bc; --bajo: #e4e8e6; }
+    .cielo[data-momento="dia"][data-cielo="llovizna"] { --alto: #7f97a3; --bajo: #c5d3da; }
+    .cielo[data-momento="dia"][data-cielo="lluvia"] { --alto: #607888; --bajo: #d0dee4; }
+    .cielo[data-momento="dia"][data-cielo="lluvia-fuerte"] { --alto: #3e5160; --bajo: #2c3c48; }
+    .cielo[data-momento="dia"][data-cielo="chubascos"] { --alto: #6d92a6; --bajo: #c9dbe3; }
+    .cielo[data-momento="dia"][data-cielo="nieve"] { --alto: #b7c6d0; --bajo: #e7eef2; }
+    .cielo[data-momento="dia"][data-cielo="chubascos-nieve"] { --alto: #8aa0ae; --bajo: #d5e0e6; }
+    .cielo[data-momento="dia"][data-cielo="tormenta"] { --alto: #2a333b; --bajo: #1e262e; }
+    .cielo[data-momento="noche"] { --alto: #101c2a; --bajo: #1c3042; }
+    .cielo[data-momento="noche"][data-cielo="nublado"],
+    .cielo[data-momento="noche"][data-cielo="lluvia"],
+    .cielo[data-momento="noche"][data-cielo="llovizna"] { --alto: #161e27; --bajo: #24303a; }
+    .cielo[data-momento="noche"][data-cielo="tormenta"],
+    .cielo[data-momento="noche"][data-cielo="lluvia-fuerte"] { --alto: #101418; --bajo: #1a2128; }
+    .cielo[data-momento="amanecer"] { --alto: #c17a62; --bajo: #f0d2b8; }
+    .cielo[data-momento="atardecer"] { --alto: #3c4e62; --bajo: #e7b08a; }
+    .cielo[data-momento="noche"],
+    .cielo[data-cielo="tormenta"],
+    .cielo[data-cielo="lluvia-fuerte"] { color: #f4f7f8; }
+    .capa { position: absolute; inset: 0; pointer-events: none; }
+    .sol, .luna {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 240ms var(--ease-out);
+    }
+    .sol { width: 64px; height: 64px; right: 14%; top: 18%; background: #f6e7b2; }
+    .cielo[data-momento="amanecer"] .sol,
+    .cielo[data-momento="atardecer"] .sol { background: #f0b56a; top: 42%; }
+    .luna { width: 48px; height: 48px; right: 16%; top: 16%; background: #e8eef3; }
+    .cielo[data-momento="dia"] .sol,
+    .cielo[data-momento="amanecer"] .sol,
+    .cielo[data-momento="atardecer"] .sol { opacity: 1; }
+    .cielo[data-momento="noche"] .luna { opacity: 1; }
+    .cielo[data-cielo="nublado"] .sol,
+    .cielo[data-cielo="niebla"] .sol,
+    .cielo[data-cielo="lluvia"] .sol,
+    .cielo[data-cielo="lluvia-fuerte"] .sol,
+    .cielo[data-cielo="llovizna"] .sol,
+    .cielo[data-cielo="tormenta"] .sol,
+    .cielo[data-cielo="nieve"] .sol,
+    .cielo[data-cielo="chubascos-nieve"] .sol,
+    .cielo[data-cielo="nublado"] .luna,
+    .cielo[data-cielo="niebla"] .luna,
+    .cielo[data-cielo="lluvia"] .luna,
+    .cielo[data-cielo="lluvia-fuerte"] .luna,
+    .cielo[data-cielo="llovizna"] .luna,
+    .cielo[data-cielo="tormenta"] .luna,
+    .cielo[data-cielo="nieve"] .luna { opacity: 0; }
+    .estrellas i {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      border-radius: 50%;
+      background: #f4f7f8;
+      opacity: 0;
+    }
+    .cielo[data-momento="noche"][data-cielo="despejado"] .estrellas i,
+    .cielo[data-momento="noche"][data-cielo="claro"] .estrellas i {
+      opacity: 0.85;
+      animation: titilar 3.6s linear infinite;
+    }
+    .nubes { top: 0; height: 58%; overflow: hidden; }
+    .pista {
+      width: 200%;
+      height: 100%;
+      animation: deriva 110s linear infinite;
+    }
+    .nubes-bajas .pista { animation-duration: 72s; }
+    .nube { position: absolute; width: 92px; height: 28px; }
+    .nube i {
+      position: absolute;
+      display: block;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .nube i:nth-child(1) { width: 78px; height: 28px; left: 12px; top: 10px; }
+    .nube i:nth-child(2) { width: 36px; height: 36px; left: 22px; top: 0; }
+    .nube i:nth-child(3) { width: 28px; height: 28px; left: 48px; top: 4px; }
+    .cielo[data-momento="noche"] .nube i { background: #8ea0b0; }
+    .cielo[data-cielo="tormenta"] .nube i { background: #c5ced6; }
+    .nubes { opacity: 0; transition: opacity 240ms var(--ease-out); }
+    .cielo[data-cielo="claro"] .nubes-altas { opacity: 0.8; }
+    .cielo[data-cielo="chubascos"] .nubes-altas { opacity: 0.72; }
+    .cielo[data-cielo="chubascos"] .nubes-bajas { opacity: 0.4; }
+    .cielo[data-cielo="nublado"] .nubes,
+    .cielo[data-cielo="lluvia"] .nubes,
+    .cielo[data-cielo="lluvia-fuerte"] .nubes,
+    .cielo[data-cielo="llovizna"] .nubes,
+    .cielo[data-cielo="nieve"] .nubes,
+    .cielo[data-cielo="chubascos-nieve"] .nubes,
+    .cielo[data-cielo="tormenta"] .nubes { opacity: 1; }
+    .cielo[data-cielo="niebla"] .nubes { opacity: 0.25; }
+    .gota, .copo { position: absolute; top: -16px; opacity: 0; }
+    .gota { width: 2px; height: 14px; border-radius: 2px; background: rgba(255, 255, 255, 0.75); }
+    .copo { width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+    .cielo[data-cielo="llovizna"] .gota,
+    .cielo[data-cielo="lluvia"] .gota,
+    .cielo[data-cielo="lluvia-fuerte"] .gota,
+    .cielo[data-cielo="chubascos"] .gota,
+    .cielo[data-cielo="tormenta"] .gota { opacity: 0.8; animation: caer 1.15s linear infinite; }
+    .cielo[data-cielo="llovizna"] .gota { opacity: 0.45; animation-duration: 1.8s; }
+    .cielo[data-cielo="lluvia-fuerte"] .gota,
+    .cielo[data-cielo="tormenta"] .gota { animation-duration: 0.72s; }
+    .cielo[data-cielo="nieve"] .copo,
+    .cielo[data-cielo="chubascos-nieve"] .copo { opacity: 0.92; animation: caer 7.5s linear infinite; }
+    .bruma span {
+      position: absolute;
+      left: -8%;
+      width: 70%;
+      height: 36px;
+      border-radius: 40px;
+      background: rgba(255, 255, 255, 0.55);
+      opacity: 0;
+    }
+    .cielo[data-cielo="niebla"] .bruma span { opacity: 1; animation: deriva 46s linear infinite; }
+    .relampago { background: #f7f8f6; opacity: 0; }
+    .cielo[data-cielo="tormenta"] .relampago { animation: rayo 7s linear infinite; }
+    .lectura {
+      position: relative;
+      z-index: 2;
+      padding: 14px 24px 16px;
+      background: var(--bajo);
+      transition: background-color 240ms var(--ease-out);
+    }
+    .lectura h1 { margin: 0; font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+    .grados {
+      margin: 2px 0 0;
+      font-size: 64px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .estado { margin: 8px 0 0; max-width: 46ch; }
+    .cuerpo { padding: var(--pad); }
+    .hallazgo { margin: 0; max-width: 62ch; }
+    .aviso { margin: 8px 0 0; color: var(--accent); }
+    .rejilla {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: var(--gap);
+      margin-top: var(--gap);
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 16px 16px 8px;
+      min-width: 0;
+    }
+    .panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 500; }
+    .nota { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+    .chart { height: 240px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 0 8px; }
+    th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
+    td { padding: 8px 0; border-top: 1px solid var(--rule); }
+    tr.hoy td { font-weight: 500; }
+    tr.hoy td.max { color: var(--chart-1); }
+    .vacio { color: var(--muted); padding: 24px 0; }
+    @keyframes deriva { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    @keyframes caer { from { transform: translateY(-24px); } to { transform: translateY(340px); } }
+    @keyframes titilar { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+    @keyframes rayo {
+      0%, 86%, 100% { opacity: 0; }
+      88% { opacity: 0.42; }
+      90% { opacity: 0.06; }
+      92% { opacity: 0.28; }
+      94% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pista, .gota, .copo, .bruma span, .relampago, .estrellas i { animation: none; }
+      .cielo[data-momento="noche"][data-cielo="despejado"] .estrellas i,
+      .cielo[data-momento="noche"][data-cielo="claro"] .estrellas i { opacity: 0.8; }
+    }
+    @media (max-width: 860px) {
+      .app { grid-template-rows: auto minmax(0, 1fr); }
+      .top { height: auto; min-height: 48px; flex-wrap: wrap; padding: 10px 12px; }
+      .sheet { margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
+      form { width: 100%; }
+      #ciudad { flex: 1; width: auto; }
+      .lienzo { height: 140px; }
+      .grados { font-size: 52px; }
+      .rejilla { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="marca"><span>Boletín</span></div>
+      <form id="consulta">
+        <label>Ciudad <input id="ciudad" value="Santa Cruz" autocomplete="off" /></label>
+        <label>País <input id="pais" value="BO" maxlength="2" autocomplete="off" /></label>
+        <button type="submit">Leer</button>
+      </form>
+    </header>
+    <main class="sheet">
+      <section class="cielo" id="escena" data-cielo="espera" data-momento="dia">
+        <div class="lienzo" aria-hidden="true">
+        <div class="firmamento"></div>
+        <div class="horizonte"></div>
+        <div class="sol" aria-hidden="true"></div>
+        <div class="luna" aria-hidden="true"></div>
+        <div class="estrellas capa" aria-hidden="true">
+          <i style="left:12%;top:18%"></i><i style="left:22%;top:30%"></i><i style="left:31%;top:14%"></i>
+          <i style="left:44%;top:24%"></i><i style="left:58%;top:12%"></i><i style="left:67%;top:28%"></i>
+          <i style="left:76%;top:16%"></i><i style="left:86%;top:26%"></i>
+        </div>
+        <div class="capa nubes nubes-altas" aria-hidden="true"><div class="pista" id="nubes-altas"></div></div>
+        <div class="capa nubes nubes-bajas" aria-hidden="true"><div class="pista" id="nubes-bajas"></div></div>
+        <div class="capa lluvia" id="lluvia" aria-hidden="true"></div>
+        <div class="capa nieve" id="nieve" aria-hidden="true"></div>
+        <div class="capa bruma" aria-hidden="true">
+          <span style="top:28%"></span><span style="top:48%;left:30%"></span><span style="top:18%;left:46%"></span>
+        </div>
+        <div class="capa relampago" aria-hidden="true"></div>
+        </div>
+        <div class="lectura">
+          <h1 id="lugar">Leyendo el parte</h1>
+          <p class="grados" id="temp">—</p>
+          <p class="estado" id="estado"></p>
+        </div>
+      </section>
+      <div class="cuerpo">
+        <p class="hallazgo" id="hallazgo"></p>
+        <p class="aviso" id="aviso" role="status"></p>
+        <div class="rejilla">
+          <section class="panel">
+            <h2>Temperatura por hora</h2>
+            <p class="nota">El trazo sólido ya se midió. Lo punteado es lo que falta del día.</p>
+            <div class="chart" id="horas" data-chart="horas"></div>
+          </section>
+          <section class="panel">
+            <h2>Siete días</h2>
+            <p class="nota">Mínima y máxima de cada día, en °C.</p>
+            <div id="semana"></div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/charts.js"></script>
+  <script>
+    const aviso = document.querySelector("#aviso");
+    const boton = document.querySelector("button");
+
+    function nube(izquierda, arriba) {
+      const pieza = document.createElement("div");
+      pieza.className = "nube";
+      pieza.style.left = izquierda;
+      pieza.style.top = arriba;
+      pieza.innerHTML = "<i></i><i></i><i></i>";
+      return pieza;
+    }
+
+    function pista(id, posiciones) {
+      const nodo = document.querySelector(id);
+      posiciones.forEach(([x, y]) => nodo.appendChild(nube(x, y)));
+      posiciones.forEach(([x, y]) => {
+        const copia = nube(x, y);
+        copia.style.left = "calc(50% + " + x + ")";
+        nodo.appendChild(copia);
+      });
+    }
+
+    pista("#nubes-altas", [["6%", "18%"], ["28%", "8%"], ["52%", "22%"], ["74%", "10%"]]);
+    pista("#nubes-bajas", [["4%", "36%"], ["34%", "28%"], ["62%", "40%"]]);
+
+    const lluvia = document.querySelector("#lluvia");
+    for (let i = 0; i < 18; i += 1) {
+      const gota = document.createElement("span");
+      gota.className = "gota";
+      gota.style.left = (4 + (i * 5.3) % 94) + "%";
+      gota.style.animationDelay = ((i * 0.13) % 1.2) + "s";
+      lluvia.appendChild(gota);
+    }
+    const nieve = document.querySelector("#nieve");
+    for (let i = 0; i < 14; i += 1) {
+      const copo = document.createElement("span");
+      copo.className = "copo";
+      copo.style.left = (3 + (i * 7.1) % 94) + "%";
+      copo.style.animationDelay = ((i * 0.47) % 7) + "s";
+      nieve.appendChild(copo);
+    }
+    document.querySelectorAll(".estrellas i").forEach((estrella, i) => {
+      estrella.style.animationDelay = (i * 0.4) + "s";
+    });
+
+    function grados(n) {
+      return Number(n).toLocaleString("es-BO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    }
+
+    function pintar(parte) {
+      const c = parte.clima;
+      const escena = document.querySelector("#escena");
+      escena.dataset.cielo = c.escena || "nublado";
+      escena.dataset.momento = c.momento || "dia";
+      document.querySelector("#lugar").textContent = c.region ? c.ciudad + ", " + c.region : c.ciudad;
+      document.querySelector("#temp").textContent = grados(c.temperatura_c) + "°";
+      const detalle = [c.cielo, "humedad " + c.humedad + " %", "viento " + grados(c.viento_kmh) + " km/h"];
+      if (c.salida) detalle.push("sale " + c.salida);
+      if (c.puesta) detalle.push("se pone " + c.puesta);
+      document.querySelector("#estado").textContent = detalle.join(" · ");
+      document.querySelector("#hallazgo").textContent = parte.hallazgo;
+      const sumaMax = parte.dias.reduce((t, d) => t + d.maxima, 0);
+      const sumaMin = parte.dias.reduce((t, d) => t + d.minima, 0);
+      console.assert(parte.horas.length > 0, "El día no tiene horas");
+      console.assert(parte.ahora_indice >= 0 && parte.ahora_indice < parte.horas.length, "La hora actual no está en el día");
+      console.assert(sumaMax >= sumaMin, "Las máximas no cierran con las mínimas");
+      const nodo = document.querySelector("#horas");
+      if (window.Charts) {
+        window.Charts.line(nodo, {
+          labels: parte.horas.map((h) => h.etiqueta),
+          series: [{ name: "Temperatura", values: parte.horas.map((h) => h.temperatura_c) }],
+          today: parte.ahora_indice,
+          todayLabel: parte.ahora_etiqueta,
+          height: 240,
+          format: (n) => grados(n) + " °C",
+          tickFormat: (n) => grados(n),
+        });
+      }
+      const filas = parte.dias.map((dia) => {
+        const marca = dia.hoy ? "hoy" : "";
+        return `<tr class="${marca}"><td>${dia.etiqueta}</td><td>${dia.cielo}</td><td class="n">${grados(dia.minima)}</td><td class="n max">${grados(dia.maxima)}</td></tr>`;
+      }).join("");
+      document.querySelector("#semana").innerHTML = parte.dias.length
+        ? `<table><thead><tr><th>Día</th><th>Cielo</th><th class="n">Mín</th><th class="n">Máx</th></tr></thead><tbody>${filas}</tbody></table>`
+        : `<p class="vacio">Sin días en el parte.</p>`;
+    }
+
+    async function leer(ciudad, pais) {
+      aviso.textContent = "";
+      boton.disabled = true;
+      try {
+        const respuesta = await fetch("/api/clima?ciudad=" + encodeURIComponent(ciudad) + "&pais=" + encodeURIComponent(pais));
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || "No se pudo leer el parte.");
+        pintar(datos);
+      } catch (exc) {
+        aviso.textContent = exc.message;
+      } finally {
+        boton.disabled = false;
+      }
+    }
+
+    document.querySelector("#consulta").addEventListener("submit", (evento) => {
+      evento.preventDefault();
+      leer(document.querySelector("#ciudad").value, document.querySelector("#pais").value);
+    });
+    leer("Santa Cruz", "BO");
+  </script>
+</body>
+</html>

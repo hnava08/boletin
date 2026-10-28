@@ -1,0 +1,9 @@
+{
+  "buildCommand": "mkdir -p public && cp src/boletin/estatico/index.html public/index.html && cp src/boletin/estatico/charts.js public/charts.js",
+  "outputDirectory": "public",
+  "functions": {
+    "api/clima.py": {
+      "includeFiles": "src/boletin/**"
+    }
+  }
+}

@@ -133,12 +133,19 @@ def test_el_parte_sabe_si_es_de_noche():
             return httpx.Response(200, json={"results": [LUGAR]})
         assert "is_day" in request.url.params["current"]
         assert "sunrise" in request.url.params["daily"]
+        assert "relative_humidity_2m" in request.url.params["hourly"]
         horas = [f"2026-10-28T{hora:02d}:00" for hora in range(24)]
         return httpx.Response(
             200,
             json={
                 "current": {**ACTUAL, "time": "2026-10-28T21:10", "is_day": 0, "weather_code": 0, "temperature_2m": 16.2},
-                "hourly": {"time": horas, "temperature_2m": [20.0] * 24, "precipitation_probability": [0] * 24},
+                "hourly": {
+                    "time": horas,
+                    "temperature_2m": [20.0] * 24,
+                    "relative_humidity_2m": [40] * 24,
+                    "wind_speed_10m": [5.5] * 24,
+                    "precipitation_probability": [0] * 24,
+                },
                 "daily": {
                     "time": ["2026-10-28"],
                     "weather_code": [0],
@@ -157,6 +164,9 @@ def test_el_parte_sabe_si_es_de_noche():
     assert parte.clima.salida == "05:41"
     assert parte.clima.puesta == "18:22"
     assert parte.ahora_indice == 21
+    assert parte.horas[21].humedad == 40
+    assert parte.horas[21].viento_kmh == 5.5
+    assert parte.horas[21].lluvia == 0
 
 
 def test_respuesta_ilegible():

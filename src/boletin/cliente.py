@@ -117,7 +117,7 @@ class Cliente:
             "wind_speed_unit": "kmh",
         }
         if completo:
-            params["hourly"] = "temperature_2m,precipitation_probability"
+            params["hourly"] = "temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation_probability"
             params["daily"] = "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset"
             params["forecast_days"] = 7
         datos = self._pedir(PRONOSTICO, params)
@@ -161,17 +161,26 @@ class Cliente:
         hourly = datos.get("hourly") or {}
         tiempos = hourly.get("time") or []
         temps = hourly.get("temperature_2m") or []
+        humedades = hourly.get("relative_humidity_2m") or []
+        vientos = hourly.get("wind_speed_10m") or []
+        probs = hourly.get("precipitation_probability") or []
         dia = observado[:10]
         horas = []
         indice = 0
         hora_actual = observado[11:13]
-        for momento, temp in zip(tiempos, temps):
+        for i, (momento, temp) in enumerate(zip(tiempos, temps)):
             if not str(momento).startswith(dia):
                 continue
             etiqueta = str(momento)[11:16]
             if etiqueta[:2] == hora_actual:
                 indice = len(horas)
-            horas.append(Hora(etiqueta=etiqueta, temperatura_c=float(temp)))
+            horas.append(Hora(
+                etiqueta=etiqueta,
+                temperatura_c=float(temp),
+                humedad=_entero(humedades, i),
+                viento_kmh=_decimal(vientos, i),
+                lluvia=_entero(probs, i),
+            ))
         if not horas:
             raise RespuestaInesperada("Open-Meteo no trajo las horas del día.")
         return horas, indice
@@ -267,6 +276,18 @@ ESCENAS = {
     "chubascos de nieve": "chubascos-nieve",
     "tormenta": "tormenta",
 }
+
+
+def _entero(serie, indice):
+    if indice >= len(serie) or serie[indice] is None:
+        return None
+    return int(serie[indice])
+
+
+def _decimal(serie, indice):
+    if indice >= len(serie) or serie[indice] is None:
+        return None
+    return float(serie[indice])
 
 
 def escena_de(cielo: str) -> str:

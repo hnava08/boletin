@@ -1,11 +1,14 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 @dataclass(frozen=True)
 class Hora:
     etiqueta: str
     temperatura_c: float
+    humedad: Optional[int] = None
+    viento_kmh: Optional[float] = None
+    lluvia: Optional[int] = None
 
 
 @dataclass(frozen=True)

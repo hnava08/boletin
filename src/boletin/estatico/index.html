@@ -247,15 +247,32 @@
       gap: var(--gap);
       margin-top: var(--gap);
     }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      margin-top: var(--gap);
+    }
     .panel {
       border: 1px solid var(--border);
       border-radius: var(--radius-card);
       padding: 16px 16px 8px;
       min-width: 0;
     }
-    .panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 500; }
+    .panel h2 { margin: 0; font-size: 16px; font-weight: 500; }
+    .valor {
+      margin: 6px 0 8px;
+      font-size: 28px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+    .valor.palabra { font-size: 22px; }
     .nota { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
     .chart { height: 240px; }
+    .chart-bajo { height: 150px; }
+    #sol-dia { height: auto; }
     table { width: 100%; border-collapse: collapse; }
     th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 0 8px; }
     th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
@@ -286,7 +303,7 @@
       #ciudad { flex: 1; width: auto; }
       .lienzo { height: 140px; }
       .grados { font-size: 52px; }
-      .rejilla { grid-template-columns: 1fr; }
+      .rejilla, .stats { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -324,7 +341,6 @@
         <div class="lectura">
           <h1 id="lugar">Leyendo el parte</h1>
           <p class="grados" id="temp">—</p>
-          <p class="estado" id="estado"></p>
         </div>
       </section>
       <div class="cuerpo">
@@ -340,6 +356,31 @@
             <h2>Siete días</h2>
             <p class="nota">Mínima y máxima de cada día, en °C.</p>
             <div id="semana"></div>
+          </section>
+        </div>
+        <div class="stats">
+          <section class="panel" aria-label="Cielo">
+            <h2>Cielo</h2>
+            <p class="valor palabra" id="cielo">—</p>
+            <p class="nota">Probabilidad de lluvia en el día, en %.</p>
+            <div class="chart chart-bajo" id="grafico-lluvia" data-chart="lluvia"></div>
+          </section>
+          <section class="panel" aria-label="Humedad">
+            <h2>Humedad</h2>
+            <p class="valor" id="humedad">—</p>
+            <p class="nota">Humedad de cada hora, en %.</p>
+            <div class="chart chart-bajo" id="grafico-humedad" data-chart="humedad"></div>
+          </section>
+          <section class="panel" aria-label="Viento">
+            <h2>Viento</h2>
+            <p class="valor" id="viento">—</p>
+            <p class="nota">Viento de cada hora, en km/h.</p>
+            <div class="chart chart-bajo" id="grafico-viento" data-chart="viento"></div>
+          </section>
+          <section class="panel" aria-label="Sol">
+            <h2>Sol</h2>
+            <p class="nota">Salida, puesta y la hora de esta lectura.</p>
+            <div class="chart chart-bajo" id="sol-dia" data-chart="sol"></div>
           </section>
         </div>
       </div>
@@ -396,6 +437,21 @@
       return Number(n).toLocaleString("es-BO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     }
 
+    function linea(id, nombre, valores, etiquetas, parte, formato, yTicks) {
+      if (valores.some((v) => v == null || Number.isNaN(Number(v)))) return;
+      const opciones = {
+        labels: etiquetas,
+        series: [{ name: nombre, values: valores }],
+        today: parte.ahora_indice,
+        todayLabel: parte.ahora_etiqueta,
+        height: 150,
+        format: formato,
+        tickFormat: (n) => (nombre === "Viento" ? grados(n) : String(Math.round(n))),
+      };
+      if (yTicks) opciones.yTicks = yTicks;
+      window.Charts.line(document.querySelector(id), opciones);
+    }
+
     function pintar(parte) {
       const c = parte.clima;
       const escena = document.querySelector("#escena");
@@ -403,20 +459,21 @@
       escena.dataset.momento = c.momento || "dia";
       document.querySelector("#lugar").textContent = c.region ? c.ciudad + ", " + c.region : c.ciudad;
       document.querySelector("#temp").textContent = grados(c.temperatura_c) + "°";
-      const detalle = [c.cielo, "humedad " + c.humedad + " %", "viento " + grados(c.viento_kmh) + " km/h"];
-      if (c.salida) detalle.push("sale " + c.salida);
-      if (c.puesta) detalle.push("se pone " + c.puesta);
-      document.querySelector("#estado").textContent = detalle.join(" · ");
+      document.querySelector("#cielo").textContent = c.cielo;
+      document.querySelector("#humedad").textContent = c.humedad + " %";
+      document.querySelector("#viento").textContent = grados(c.viento_kmh) + " km/h";
       document.querySelector("#hallazgo").textContent = parte.hallazgo;
       const sumaMax = parte.dias.reduce((t, d) => t + d.maxima, 0);
       const sumaMin = parte.dias.reduce((t, d) => t + d.minima, 0);
+      const etiquetas = parte.horas.map((h) => h.etiqueta);
       console.assert(parte.horas.length > 0, "El día no tiene horas");
       console.assert(parte.ahora_indice >= 0 && parte.ahora_indice < parte.horas.length, "La hora actual no está en el día");
       console.assert(sumaMax >= sumaMin, "Las máximas no cierran con las mínimas");
-      const nodo = document.querySelector("#horas");
+      console.assert(parte.horas.every((h) => h.humedad == null || (h.humedad >= 0 && h.humedad <= 100)), "La humedad sale de 0 a 100");
+      console.assert(parte.horas.every((h) => h.lluvia == null || (h.lluvia >= 0 && h.lluvia <= 100)), "La lluvia sale de 0 a 100");
       if (window.Charts) {
-        window.Charts.line(nodo, {
-          labels: parte.horas.map((h) => h.etiqueta),
+        window.Charts.line(document.querySelector("#horas"), {
+          labels: etiquetas,
           series: [{ name: "Temperatura", values: parte.horas.map((h) => h.temperatura_c) }],
           today: parte.ahora_indice,
           todayLabel: parte.ahora_etiqueta,
@@ -424,6 +481,22 @@
           format: (n) => grados(n) + " °C",
           tickFormat: (n) => grados(n),
         });
+        linea("#grafico-lluvia", "Lluvia", parte.horas.map((h) => h.lluvia), etiquetas, parte, (n) => Math.round(n) + " %", [0, 25, 50, 75, 100]);
+        linea("#grafico-humedad", "Humedad", parte.horas.map((h) => h.humedad), etiquetas, parte, (n) => Math.round(n) + " %", [0, 25, 50, 75, 100]);
+        linea("#grafico-viento", "Viento", parte.horas.map((h) => h.viento_kmh), etiquetas, parte, (n) => grados(n) + " km/h");
+        const ahora = (c.observado || "").slice(11, 16);
+        const marcas = [];
+        if (c.salida) marcas.push({ label: "Salida del sol", value: c.salida, at: c.salida });
+        if (c.puesta) marcas.push({ label: "Puesta del sol", value: c.puesta, at: c.puesta });
+        if (ahora) marcas.push({ label: "Ahora", value: ahora, at: ahora });
+        if (marcas.length) {
+          window.Charts.timeStrip(document.querySelector("#sol-dia"), marcas, {
+            open: "00:00",
+            close: "23:59",
+            step: 240,
+            todayLabel: "Hora",
+          });
+        }
       }
       const filas = parte.dias.map((dia) => {
         const marca = dia.hoy ? "hoy" : "";
